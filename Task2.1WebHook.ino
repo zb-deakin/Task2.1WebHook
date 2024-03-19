@@ -1,9 +1,9 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
-#include <WiFiNINA.h>                     // arduino wifi library
-#include "wifi-thingspeak-credentials.h"  // secrets for thingspeak library
-#include <ThingSpeak.h>                   // thingspeak library
+#include <WiFiNINA.h>    // arduino wifi library
+#include <ThingSpeak.h>  // thingspeak library
+#include "secrets.h"     // secrets for thingspeak library
 
 // setup DHT22 on pin 12
 #define DHTTYPE DHT22
