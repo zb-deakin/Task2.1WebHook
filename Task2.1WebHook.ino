@@ -5,7 +5,7 @@
 #include "wifi-thingspeak-credentials.h"  // secrets for thingspeak library
 #include <ThingSpeak.h>                   // thingspeak library
 
-// use a DHT22 on pin 12
+// setup DHT22 on pin 12
 #define DHTTYPE DHT22
 #define DHTPIN 12
 DHT dht(DHTPIN, DHTTYPE);
@@ -13,79 +13,57 @@ DHT dht(DHTPIN, DHTTYPE);
 // setup wifi
 char wifiAccessPointName[] = WIFI_NAME;
 char wifiPassword[] = WIFI_PASSWORD;
+int wifiConnectionStatus = WL_IDLE_STATUS;
 WiFiClient wifiClient;
 
 // setup thingspeak
 unsigned long thingSpeakChannelId = THINGSPEAK_CHANNEL_ID;
 const char* thingSpeakApiWriteKey = THINGSPEAK_API_WRITE_KEY;
-int thingSpeakChannelFieldIndex = 1;
-int success = 200;
-
-// setup light sensor variables
-int lightSensorPin = A0;
-int lightSensorValue;
+int httpSuccess = 200;
 
 void setup() {
   Serial.begin(9600);
+
+  // wait until connected to the internet
+  while (wifiConnectionStatus != WL_CONNECTED) {
+    Serial.println("Connecting to " + String(wifiAccessPointName));
+
+    wifiConnectionStatus = WiFi.begin(wifiAccessPointName, wifiPassword);
+
+    // wait 5 seconds for connection to start
+    delay(5000);
+  }
+
+  // initilize the sensor and ThingSpeak
   dht.begin();
-
-  // // wifi is needed for
-  // if (WiFi.status() == WL_NO_MODULE) {
-  //   Serial.println("Communication with WiFi module failed!");
-
-  //   // if the wifi is not working stop the program from running
-  //   while (true) {
-  //     continue;
-  //   }
-  // }
-
-  // ThingSpeak.begin(wifiClient);  //Initialize ThingSpeak
+  ThingSpeak.begin(wifiClient);
 }
 
 void loop() {
-
-  // Connect or reconnect to WiFi
-  // if (WiFi.status() != WL_CONNECTED) {
-  //   Serial.print("Connecting to Wifi Access Point: ");
-  //   Serial.println(wifiAccessPointName);
-
-  //   while (WiFi.status() != WL_CONNECTED) {
-  //     WiFi.begin(wifiAccessPointName, wifiPassword);
-  //     Serial.println("Trying to connect ...");
-  //     delay(1000);
-  //   }
-  //   Serial.println("\nConnected.");
-  // }
-
-  float humidity = dht.readHumidity();
   float celsiusTemperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
 
-  Serial.println("humidity: " + String(humidity));
   Serial.println("celsiusTemperature: " + String(celsiusTemperature));
+  Serial.println("humidity: " + String(humidity));
 
   // if there is an error, jump out of the loop early to try again
-  if (isnan(humidity) || isnan(celsiusTemperature)) {
+  if (isnan(celsiusTemperature) || isnan(humidity)) {
     Serial.println(F("Temperature or humidity did not ready correctly"));
     return;
   }
 
- delay(500);
+  // send value to thingspeak
+  ThingSpeak.setField(1, celsiusTemperature);
+  ThingSpeak.setField(2, humidity);
 
-  // // get light-level reading
-  // lightSensorValue = analogRead(lightSensorPin);
-  // // give it a moment to convert from analogue to digital value
-  // delay(10);
-  // // print captured value
-  // Serial.println(lightSensorValue);
+  int httpResponseCode = ThingSpeak.writeFields(thingSpeakChannelId, thingSpeakApiWriteKey);
 
-  // // send value to thingspeak
-  // int httpResponseCode = ThingSpeak.writeField(thingSpeakChannelId, thingSpeakChannelFieldIndex, lightSensorValue, thingSpeakApiWriteKey);
-  // if (httpResponseCode == success) {
-  //   Serial.println("THINGSPEAK SUCCESS: Light-level reading sent to channel correctly");
-  // } else {
-  //   Serial.println("THINGSPEAK FAILED: HTTP Response code received " + String(httpResponseCode));
-  // }
+  if (httpResponseCode == httpSuccess) {
+    Serial.println("THINGSPEAK SUCCESS: Temperature and Humidity reading sent to channel correctly");
+  } else {
+    Serial.println("THINGSPEAK FAILED: HTTP Response code received " + String(httpResponseCode));
+  }
 
-  // wait 30 seconds between each write
-  // delay(30000);
+  // wait 60 seconds between each write
+  delay(60000);
 }
